@@ -2,7 +2,7 @@
 //   npm run package:ionos                      app at the root of a domain or subdomain
 //   npm run package:ionos -- /cuckoo-colors/   app in a subfolder
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,7 +24,7 @@ cpSync(join(root, 'php', 'api'), join(out, 'api'), {
   recursive: true,
   filter: (src) => !/[\\/]config\.php$/.test(src),
 });
-cpSync(join(root, 'php', 'root.htaccess'), join(out, '.htaccess'));
+writeFileSync(join(out, '.htaccess'), readFileSync(join(root, 'php', 'root.htaccess'), 'utf8').replaceAll('__BASE__', baseHref));
 
 if (!existsSync(join(out, 'index.html')) || !existsSync(join(out, 'api', 'index.php'))) {
   console.error('Packaging failed: expected files are missing.');

@@ -4,9 +4,12 @@ DirectoryIndex index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # Filled in by the packaging script (npm run package:ionos). Explicit paths avoid host-specific
+    # differences in how Apache works out relative rewrite targets.
+    RewriteBase __BASE__
 
     # API requests go to the PHP script (index.php itself is left alone).
-    RewriteRule ^api/(?!index\.php$)(.*)$ api/index.php [L,QSA]
+    RewriteRule ^api/(?!index\.php$)(.*)$ __BASE__api/index.php [L,QSA]
 
     # Real files and folders are served as they are.
     RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -14,7 +17,7 @@ DirectoryIndex index.html
     RewriteRule ^ - [L]
 
     # Everything else is a client-side route of the Angular app.
-    RewriteRule ^ index.html [L]
+    RewriteRule ^ __BASE__index.html [L]
 </IfModule>
 
 # Never serve hidden files (except .well-known).
