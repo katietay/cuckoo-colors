@@ -6,6 +6,7 @@
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
+const net = require('node:net');
 const path = require('node:path');
 
 const backend = process.argv[2];
@@ -16,8 +17,20 @@ if (!['node', 'php'].includes(backend)) {
 const root = path.resolve(__dirname, '..');
 const KEY = 'contract-test-key-0123456789abcdef';
 
+// Ask the OS for a free port instead of guessing one, so parallel jobs and busy runners cannot collide.
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
 async function waitFor(base, anyStatus = false) {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 300; i++) {
     try {
       const res = await fetch(base + '/api/health');
       if (res.ok || anyStatus) return;
@@ -31,7 +44,7 @@ async function waitFor(base, anyStatus = false) {
 
 async function withServer(name, { key = KEY, writeLimit, brokenDb = false } = {}, run) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cc-${backend}-`));
-  const port = 4100 + Math.floor(Math.random() * 800);
+  const port = await freePort();
   const env = { ...process.env };
   // Log to a file: the runner blocks while tests run, so a pipe could fill up and stall the server.
   const logFile = path.join(dir, 'server.log');
