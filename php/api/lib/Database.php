@@ -5,7 +5,7 @@ declare(strict_types=1);
 final class Database
 {
     public const MIN_COLORS = 2;
-    public const MAX_COLORS = 50;
+    public const MAX_COLORS = 75;
 
     private const DEFAULT_COLORS = [
         ['red', '#ff0000'], ['orange', '#ffa500'], ['yellow', '#ffff00'], ['green', '#008000'],
@@ -29,18 +29,20 @@ final class Database
     private static function ensureSchema(PDO $pdo): void
     {
         try {
-            $pdo->query('SELECT 1 FROM colors LIMIT 1');
+            $pdo->query('SELECT id, name, hex, source, created_at FROM colors LIMIT 1');
             $pdo->query('SELECT 1 FROM rate_limits LIMIT 1');
             return;
         } catch (PDOException) {
-            // Tables are missing: create them below.
+            // A table or column is missing: create or upgrade below.
         }
 
         if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
             $pdo->exec('CREATE TABLE IF NOT EXISTS colors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(name) BETWEEN 1 AND 40),
-                hex TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(hex) = 7)
+                hex TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(hex) = 7),
+                source TEXT NOT NULL DEFAULT \'admin\',
+                created_at INTEGER NOT NULL DEFAULT 0
             )');
             $pdo->exec('CREATE TABLE IF NOT EXISTS rate_limits (
                 k TEXT PRIMARY KEY, window_start INTEGER NOT NULL, hits INTEGER NOT NULL
@@ -50,6 +52,8 @@ final class Database
                 id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(40) NOT NULL,
                 hex CHAR(7) NOT NULL,
+                source VARCHAR(8) NOT NULL DEFAULT \'admin\',
+                created_at INT UNSIGNED NOT NULL DEFAULT 0,
                 UNIQUE KEY uq_colors_name (name),
                 UNIQUE KEY uq_colors_hex (hex)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
@@ -59,6 +63,8 @@ final class Database
                 hits INT UNSIGNED NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
         }
+
+        self::addMissingColumns($pdo);
 
         $count = (int) $pdo->query('SELECT COUNT(*) FROM colors')->fetchColumn();
         if ($count === 0) {
@@ -71,6 +77,34 @@ final class Database
                 }
             }
         }
+    }
+
+    /** Databases made before visitor colors existed get the two new columns. Existing rows count as admin colors. */
+    private static function addMissingColumns(PDO $pdo): void
+    {
+        $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+        $columns = [
+            'source' => $sqlite ? "TEXT NOT NULL DEFAULT 'admin'" : "VARCHAR(8) NOT NULL DEFAULT 'admin'",
+            'created_at' => $sqlite ? 'INTEGER NOT NULL DEFAULT 0' : 'INT UNSIGNED NOT NULL DEFAULT 0',
+        ];
+        foreach ($columns as $name => $definition) {
+            try {
+                $pdo->query("SELECT $name FROM colors LIMIT 1");
+            } catch (PDOException) {
+                try {
+                    $pdo->exec("ALTER TABLE colors ADD COLUMN $name $definition");
+                } catch (PDOException) {
+                    // Another request added it at the same moment. Ignore.
+                }
+            }
+        }
+    }
+
+    /** Deletes visitor colors older than $expireSeconds. Admin colors never expire. */
+    public static function purgeExpired(PDO $pdo, int $expireSeconds): void
+    {
+        $pdo->prepare("DELETE FROM colors WHERE source = 'visitor' AND created_at <= ?")
+            ->execute([time() - $expireSeconds]);
     }
 
     public static function isDuplicate(PDOException $e): bool

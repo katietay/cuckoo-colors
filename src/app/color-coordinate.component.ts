@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { TitleCasePipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Color, ColorService } from './services/colors.service';
+import { Color, ColorService, ServerConfig } from './services/colors.service';
+import { AddColorComponent } from './shared/add-color.component';
 import { compareCellIds } from './shared/color-utils';
 
 export interface ColorRow {
@@ -12,7 +13,7 @@ export interface ColorRow {
 @Component({
   selector: 'app-color-coordinate',
   standalone: true,
-  imports: [TitleCasePipe, FormsModule, ReactiveFormsModule],
+  imports: [TitleCasePipe, FormsModule, ReactiveFormsModule, AddColorComponent],
   templateUrl: './color-coordinate.component.html',
   styleUrls: ['./color-coordinate.component.css'],
 })
@@ -20,6 +21,7 @@ export class ColorCoordinateComponent implements OnInit {
   colorForm: FormGroup;
   printMode = false;
   loadError = '';
+  config: ServerConfig = { editingEnabled: false, minColors: 2, maxColors: 75 };
 
   colors: Color[] = [];
   colorRows: ColorRow[] = [];
@@ -46,7 +48,23 @@ export class ColorCoordinateComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.colorService.getConfig().subscribe({
+      next: (config) => (this.config = config),
+      error: () => (this.config = { ...this.config, editingEnabled: false }),
+    });
     this.loadColors();
+  }
+
+  /** A color was just added from the form on this page, so it can be used right away. */
+  onColorAdded(color: Color): void {
+    this.colors = [...this.colors, color];
+    this.updateColorsValidator();
+  }
+
+  private updateColorsValidator(): void {
+    const control = this.colorForm.get('colors');
+    control?.setValidators([Validators.required, Validators.min(1), Validators.max(Math.max(this.colors.length, 1))]);
+    control?.updateValueAndValidity();
   }
 
   loadColors(): void {
@@ -54,12 +72,7 @@ export class ColorCoordinateComponent implements OnInit {
     this.colorService.getColors().subscribe({
       next: (colors) => {
         this.colors = colors;
-        this.colorForm.get('colors')?.setValidators([
-          Validators.required,
-          Validators.min(1),
-          Validators.max(Math.max(colors.length, 1)),
-        ]);
-        this.colorForm.get('colors')?.updateValueAndValidity();
+        this.updateColorsValidator();
       },
       error: () => (this.loadError = 'Could not load the color list. Please refresh the page to try again.'),
     });

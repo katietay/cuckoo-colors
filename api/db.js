@@ -5,7 +5,7 @@ const path = require('node:path');
 const Database = require('better-sqlite3');
 
 const MIN_COLORS = 2;
-const MAX_COLORS = 50;
+const MAX_COLORS = 75;
 
 const DEFAULT_COLORS = [
   ['red', '#ff0000'],
@@ -37,11 +37,25 @@ function openDatabase(file) {
     CREATE TABLE IF NOT EXISTS colors (
       id   INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(name) BETWEEN 1 AND 40),
-      hex  TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(hex) = 7)
+      hex  TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(hex) = 7),
+      source     TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('admin', 'visitor')),
+      created_at INTEGER NOT NULL DEFAULT 0
     );
   `);
+  addMissingColumns(db);
   seedIfEmpty(db);
   return db;
+}
+
+/** Databases made before visitor colors existed get the two new columns. Existing rows count as admin colors. */
+function addMissingColumns(db) {
+  const have = new Set(db.prepare('PRAGMA table_info(colors)').all().map((c) => c.name));
+  if (!have.has('source')) {
+    db.exec("ALTER TABLE colors ADD COLUMN source TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('admin', 'visitor'))");
+  }
+  if (!have.has('created_at')) {
+    db.exec('ALTER TABLE colors ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 function seedIfEmpty(db) {
@@ -53,26 +67,45 @@ function seedIfEmpty(db) {
   })();
 }
 
-/** Small repository around prepared statements. Every query is parameterized. */
-function createColorRepository(db) {
-  const list = db.prepare('SELECT id, name, hex FROM colors ORDER BY id');
-  const get = db.prepare('SELECT id, name, hex FROM colors WHERE id = ?');
+/**
+ * Small repository around prepared statements. Every query is parameterized.
+ * Colors added by visitors expire after `expireSeconds` and are deleted the next time anything reads the table.
+ */
+function createColorRepository(db, { expireSeconds = 3 * 24 * 60 * 60 } = {}) {
+  const now = () => Math.floor(Date.now() / 1000);
+  const columns = 'id, name, hex, source, created_at';
+  const purge = db.prepare("DELETE FROM colors WHERE source = 'visitor' AND created_at <= ?");
+  const list = db.prepare(`SELECT ${columns} FROM colors ORDER BY id`);
+  const get = db.prepare(`SELECT ${columns} FROM colors WHERE id = ?`);
   const count = db.prepare('SELECT COUNT(*) AS n FROM colors');
-  const insert = db.prepare('INSERT INTO colors (name, hex) VALUES (?, ?)');
-  const update = db.prepare('UPDATE colors SET name = ?, hex = ? WHERE id = ?');
+  const countVisitor = db.prepare("SELECT COUNT(*) AS n FROM colors WHERE source = 'visitor'");
+  const insert = db.prepare('INSERT INTO colors (name, hex, source, created_at) VALUES (?, ?, ?, ?)');
+  // Saving an edit as admin keeps a visitor color permanently.
+  const update = db.prepare("UPDATE colors SET name = ?, hex = ?, source = 'admin' WHERE id = ?");
   const remove = db.prepare('DELETE FROM colors WHERE id = ?');
 
+  const expire = () => purge.run(now() - expireSeconds);
+  const shape = (row) =>
+    row && {
+      id: row.id,
+      name: row.name,
+      hex: row.hex,
+      source: row.source,
+      expiresAt: row.source === 'visitor' ? row.created_at + expireSeconds : null,
+    };
+
   return {
-    list: () => list.all(),
-    get: (id) => get.get(id),
-    count: () => count.get().n,
-    create: ({ name, hex }) => {
-      const { lastInsertRowid } = insert.run(name, hex);
-      return get.get(Number(lastInsertRowid));
+    list: () => (expire(), list.all().map(shape)),
+    get: (id) => (expire(), shape(get.get(id))),
+    count: () => (expire(), count.get().n),
+    countVisitor: () => (expire(), countVisitor.get().n),
+    create: ({ name, hex }, source = 'admin') => {
+      const { lastInsertRowid } = insert.run(name, hex, source, now());
+      return shape(get.get(Number(lastInsertRowid)));
     },
     update: (id, { name, hex }) => {
       update.run(name, hex, id);
-      return get.get(id);
+      return shape(get.get(id));
     },
     remove: (id) => remove.run(id).changes > 0,
   };

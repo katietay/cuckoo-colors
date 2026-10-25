@@ -7,6 +7,13 @@
     <p class="error" role="alert">{{ loadError }}</p>
   }
 
+  <p class="ignoreOnPrint intro">
+    Make a printable color-coordinate activity sheet for vision therapy. Choose how many rows, columns and colors
+    you want, then press Generate. Paint a pattern on the grid in Table 2, and Table 1 builds a coordinate list for each
+    color (for example "Red: A1, B3"). Print the sheet so a person can recreate the pattern from the list. Every color
+    is shown with its name, not only its swatch.
+  </p>
+
   <form [formGroup]="colorForm" (ngSubmit)="onSubmit()">
     <p class="ignoreOnPrint">
       <label for="rows-input">Choose # of Rows (1–1000):</label>
@@ -120,4 +127,12 @@
       }
     </div>
   </form>
+
+  <section class="ignoreOnPrint" aria-labelledby="add-heading">
+    <h2 id="add-heading" class="visually-hidden">Add a color</h2>
+    <p class="hint">
+      Missing a color? Add your own to the shared list and it will show up here right away.
+    </p>
+    <app-add-color [colors]="colors" [config]="config" (added)="onColorAdded($event)" />
+  </section>
 </main>

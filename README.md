@@ -21,7 +21,8 @@ The project started as a four-person course project (Team 28). It has since been
 - Color Coordinate: choose rows (1 to 1000), columns (1 to 702, labelled A to ZZ) and colors, then paint cells
 - Changing a color recolors every cell already painted with it
 - Printable, grayscale-friendly worksheet layout
-- Color Management page to view, add, edit and delete colors (editing requires an admin key)
+- Color Management page to view, add, edit and delete colors (editing and deleting require an admin key)
+- Optional public color suggestions, from the Color Management page or directly on the Color Coordinate page: strict name rules plus an offensive-word filter, a daily limit per visitor, a cap on visitor colors, a 75 color total, automatic expiry, and an "Email me" button when the list is full. Off by default (`public_add`)
 - Keyboard-accessible painting grid (arrow keys move, Enter or Space paints), skip link, labelled inputs, text alternatives for painted cells
 - RESTful API with server-side input validation, rate limiting and generic error responses
 - Unit and integration tests across backend and frontend

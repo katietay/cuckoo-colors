@@ -35,7 +35,16 @@ const app = createApp({
   adminToken,
   staticDir,
   production,
+  contactEmail: process.env.CONTACT_EMAIL || '',
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  visitor: {
+    enabled: ['1', 'true'].includes(String(process.env.PUBLIC_ADD).toLowerCase()),
+    maxColors: Number(process.env.VISITOR_MAX_COLORS) || undefined,
+    perDay: Number(process.env.VISITOR_DAILY_LIMIT) || undefined,
+    expireSeconds:
+      Number(process.env.VISITOR_EXPIRE_SECONDS) ||
+      (Number(process.env.VISITOR_EXPIRE_DAYS) ? Number(process.env.VISITOR_EXPIRE_DAYS) * 86400 : undefined),
+  },
   limits: {
     // Optional overrides, mainly for tests.
     writeLimit: Number(process.env.WRITE_RATE_LIMIT) || undefined,

@@ -33,6 +33,7 @@ describe('ColorCoordinateComponent', () => {
     component = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne('api/config').flush({ editingEnabled: false, minColors: 2, maxColors: 75 });
     http.expectOne('api/colors').flush(COLORS);
     fixture.detectChanges();
   });
@@ -50,8 +51,29 @@ describe('ColorCoordinateComponent', () => {
   it('shows an error message if colors cannot be loaded', () => {
     const second = TestBed.createComponent(ColorCoordinateComponent);
     second.detectChanges();
+    http.expectOne('api/config').flush({ editingEnabled: false, minColors: 2, maxColors: 75 });
     http.expectOne('api/colors').flush('x', { status: 500, statusText: 'Server Error' });
     expect(second.componentInstance.loadError).toContain('Could not load');
+  });
+
+  it('explains what the page is for', () => {
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('activity sheet for vision therapy');
+  });
+
+  it('raises the color limit when a color is added from the page', () => {
+    component.onColorAdded({ id: 9, name: 'pink', hex: '#ffc0cb' });
+    component.colorForm.setValue({ rows: 2, columns: 2, colors: 5 });
+    expect(component.colorForm.valid).toBeTrue();
+    expect(component.colors.length).toBe(5);
+  });
+
+  it('shows the add-color form when visitors may add colors', () => {
+    component.config = {
+      editingEnabled: true, minColors: 2, maxColors: 75, publicAdding: true,
+      visitorLimits: { maxColors: 10, perDay: 3, expireSeconds: 259200, nameMin: 3, nameMax: 24 },
+    };
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('#add-name')).not.toBeNull();
   });
 
   it('validates row, column and color limits', () => {

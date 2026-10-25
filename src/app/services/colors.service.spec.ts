@@ -30,7 +30,7 @@ describe('ColorService', () => {
 
   it('GETs the server config', () => {
     service.getConfig().subscribe((c) => expect(c.editingEnabled).toBeTrue());
-    http.expectOne('api/config').flush({ editingEnabled: true, minColors: 2, maxColors: 50 });
+    http.expectOne('api/config').flush({ editingEnabled: true, minColors: 2, maxColors: 75 });
   });
 
   it('sends the admin key in the X-Admin-Key header on writes, only once it is set', () => {

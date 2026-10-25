@@ -6,8 +6,10 @@ declare(strict_types=1);
  *
  *   GET    /api/health        GET /api/config        GET /api/colors
  *   POST   /api/colors        PUT /api/colors/{id}   DELETE /api/colors/{id}   (admin key required)
+ *   POST /api/colors without a key adds a short-lived visitor color, only when public_add is switched on.
  */
 
+require __DIR__ . '/lib/Blocklist.php';
 require __DIR__ . '/lib/Validate.php';
 require __DIR__ . '/lib/Config.php';
 require __DIR__ . '/lib/Database.php';
@@ -74,11 +76,29 @@ if (!$known) {
 
 $config = Config::load();
 $pdo = Database::connect($config['db']);
+Database::purgeExpired($pdo, $config['visitor_expire_seconds']);
+
+/** What the API returns for one row. Visitor colors say when they will be removed. */
+function colorShape(array $r, int $expireSeconds): array
+{
+    $visitor = ($r['source'] ?? 'admin') === 'visitor';
+    return [
+        'id' => (int) $r['id'],
+        'name' => $r['name'],
+        'hex' => $r['hex'],
+        'source' => $visitor ? 'visitor' : 'admin',
+        'expiresAt' => $visitor ? (int) $r['created_at'] + $expireSeconds : null,
+    ];
+}
+
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+// With a key: the normal admin rules. Without one: a visitor submission, only if that is switched on.
+$isVisitor = $method === 'POST' && $route === '/colors' && $config['public_add']
+    && ($_SERVER['HTTP_X_ADMIN_KEY'] ?? '') === '';
 
 // ---- Writes: rate limit, body, admin key ----------------------------------
 $input = [];
 if ($isWrite) {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     if (!RateLimit::allow($pdo, 'write|' . $ip, $config['write_limit'], $config['window'])) {
         header('Retry-After: ' . $config['window']);
         fail(429, 'Too many requests. Please try again later.');
@@ -102,12 +122,14 @@ if ($isWrite) {
         }
     }
 
-    if ($config['admin_token'] === '') {
-        fail(503, 'Editing is disabled on this server.');
-    }
-    $key = $_SERVER['HTTP_X_ADMIN_KEY'] ?? '';
-    if ($key === '' || !hash_equals(hash('sha256', $config['admin_token'], true), hash('sha256', $key, true))) {
-        fail(401, 'A valid admin key is required.');
+    if (!$isVisitor) {
+        if ($config['admin_token'] === '') {
+            fail(503, 'Editing is disabled on this server.');
+        }
+        $key = $_SERVER['HTTP_X_ADMIN_KEY'] ?? '';
+        if ($key === '' || !hash_equals(hash('sha256', $config['admin_token'], true), hash('sha256', $key, true))) {
+            fail(401, 'A valid admin key is required.');
+        }
     }
 }
 
@@ -123,31 +145,65 @@ switch ($method . ' ' . $route) {
             'editingEnabled' => $config['admin_token'] !== '',
             'minColors' => Database::MIN_COLORS,
             'maxColors' => Database::MAX_COLORS,
+            'publicAdding' => $config['public_add'],
+            'contactEmail' => $config['contact_email'],
+            'visitorLimits' => [
+                'maxColors' => $config['visitor_max_colors'],
+                'perDay' => $config['visitor_daily_limit'],
+                'expireSeconds' => $config['visitor_expire_seconds'],
+                'nameMin' => Validate::VISITOR_NAME_MIN,
+                'nameMax' => Validate::VISITOR_NAME_MAX,
+            ],
         ]);
 
     case 'GET /colors':
-        $rows = $pdo->query('SELECT id, name, hex FROM colors ORDER BY id')->fetchAll();
-        respond(200, array_map(static fn(array $r): array => ['id' => (int) $r['id'], 'name' => $r['name'], 'hex' => $r['hex']], $rows));
+        $rows = $pdo->query('SELECT id, name, hex, source, created_at FROM colors ORDER BY id')->fetchAll();
+        $expire = $config['visitor_expire_seconds'];
+        respond(200, array_map(static fn(array $r): array => colorShape($r, $expire), $rows));
 
     case 'POST /colors':
-        $checked = Validate::color($input);
-        if (isset($checked['error'])) {
-            fail(400, $checked['error']);
+        if ($isVisitor) {
+            $checked = Validate::visitorColor($input);
+            if (isset($checked['error'])) {
+                fail(400, $checked['error']);
+            }
+            $visitorCount = (int) $pdo->query("SELECT COUNT(*) FROM colors WHERE source = 'visitor'")->fetchColumn();
+            $total = (int) $pdo->query('SELECT COUNT(*) FROM colors')->fetchColumn();
+            if ($visitorCount >= $config['visitor_max_colors'] || $total >= Database::MAX_COLORS) {
+                fail(409, 'The visitor color list is full right now. Visitor colors are removed automatically, so please try again later.');
+            }
+            if (!RateLimit::allow($pdo, 'visitor-add|' . $ip, $config['visitor_daily_limit'], 86400)) {
+                fail(429, 'You can add up to ' . $config['visitor_daily_limit'] . ' colors per day. Please try again tomorrow.');
+            }
+            $source = 'visitor';
+        } else {
+            $checked = Validate::color($input);
+            if (isset($checked['error'])) {
+                fail(400, $checked['error']);
+            }
+            $count = (int) $pdo->query('SELECT COUNT(*) FROM colors')->fetchColumn();
+            if ($count >= Database::MAX_COLORS) {
+                fail(409, 'The color list is limited to ' . Database::MAX_COLORS . ' colors.');
+            }
+            $source = 'admin';
         }
-        $count = (int) $pdo->query('SELECT COUNT(*) FROM colors')->fetchColumn();
-        if ($count >= Database::MAX_COLORS) {
-            fail(409, 'The color list is limited to ' . Database::MAX_COLORS . ' colors.');
-        }
+        $now = time();
         try {
-            $pdo->prepare('INSERT INTO colors (name, hex) VALUES (?, ?)')
-                ->execute([$checked['value']['name'], $checked['value']['hex']]);
+            $pdo->prepare('INSERT INTO colors (name, hex, source, created_at) VALUES (?, ?, ?, ?)')
+                ->execute([$checked['value']['name'], $checked['value']['hex'], $source, $now]);
         } catch (PDOException $e) {
             if (Database::isDuplicate($e)) {
                 fail(409, $duplicate);
             }
             throw $e;
         }
-        respond(201, ['id' => (int) $pdo->lastInsertId()] + $checked['value']);
+        respond(201, colorShape([
+            'id' => $pdo->lastInsertId(),
+            'name' => $checked['value']['name'],
+            'hex' => $checked['value']['hex'],
+            'source' => $source,
+            'created_at' => $now,
+        ], $config['visitor_expire_seconds']));
 
     case 'PUT /colors/:id':
         $id = Validate::id((string) $colorId);
@@ -164,7 +220,8 @@ switch ($method . ' ' . $route) {
             fail(400, $checked['error']);
         }
         try {
-            $pdo->prepare('UPDATE colors SET name = ?, hex = ? WHERE id = ?')
+            // Saving an edit as admin keeps a visitor color permanently.
+            $pdo->prepare("UPDATE colors SET name = ?, hex = ?, source = 'admin' WHERE id = ?")
                 ->execute([$checked['value']['name'], $checked['value']['hex'], $id]);
         } catch (PDOException $e) {
             if (Database::isDuplicate($e)) {
@@ -172,7 +229,7 @@ switch ($method . ' ' . $route) {
             }
             throw $e;
         }
-        respond(200, ['id' => $id] + $checked['value']);
+        respond(200, ['id' => $id] + $checked['value'] + ['source' => 'admin', 'expiresAt' => null]);
 
     case 'DELETE /colors/:id':
         $id = Validate::id((string) $colorId);

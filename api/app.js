@@ -8,9 +8,31 @@ const { rateLimit } = require('express-rate-limit');
 
 const { MIN_COLORS, MAX_COLORS, createColorRepository, isUniqueViolation } = require('./db');
 const { requireAdmin } = require('./auth');
-const { validateColorInput, parseId } = require('./validate');
+const {
+  VISITOR_NAME_MAX,
+  VISITOR_NAME_MIN,
+  validateColorInput,
+  validateVisitorColorInput,
+  parseId,
+} = require('./validate');
 
 const DUPLICATE_MESSAGE = 'A color with that name or hex value already exists.';
+
+/** Allows each client address `perDay` successful additions per rolling day. Kept in memory. */
+function createDailyQuota(perDay, dayMs = 24 * 60 * 60 * 1000) {
+  const seen = new Map();
+  return {
+    take(key) {
+      const now = Date.now();
+      for (const [k, v] of seen) if (now - v.start >= dayMs) seen.delete(k);
+      const entry = seen.get(key) ?? { start: now, count: 0 };
+      if (entry.count >= perDay) return false;
+      entry.count += 1;
+      seen.set(key, entry);
+      return true;
+    },
+  };
+}
 
 /**
  * Build the Express app.
@@ -20,6 +42,9 @@ const DUPLICATE_MESSAGE = 'A color with that name or hex value already exists.';
  * @param {string} [options.adminToken]  Required for POST, PUT and DELETE. Unset = read-only.
  * @param {string} [options.staticDir]   Built Angular app to serve (optional).
  * @param {boolean|number|string} [options.trustProxy]  Express "trust proxy" setting.
+ * @param {{enabled?: boolean, maxColors?: number, perDay?: number, expireSeconds?: number}} [options.visitor]
+ *        Visitors (no admin key) may add colors when enabled. Off by default.
+ * @param {string} [options.contactEmail]  Shown to visitors when the list is full.
  * @param {boolean} [options.production]
  * @param {{readLimit?: number, writeLimit?: number, windowMs?: number}} [options.limits]
  * @param {(err: Error) => void} [options.logError]
@@ -31,9 +56,18 @@ function createApp({
   trustProxy = false,
   production = false,
   limits = {},
+  visitor = {},
+  contactEmail = '',
   logError = (err) => console.error(err),
 }) {
-  const colors = createColorRepository(db);
+  const visitorRules = {
+    enabled: Boolean(visitor.enabled),
+    maxColors: visitor.maxColors ?? 10,
+    perDay: visitor.perDay ?? 3,
+    expireSeconds: visitor.expireSeconds ?? 3 * 24 * 60 * 60,
+  };
+  const colors = createColorRepository(db, { expireSeconds: visitorRules.expireSeconds });
+  const dayQuota = createDailyQuota(visitorRules.perDay);
   const app = express();
 
   app.disable('x-powered-by');
@@ -94,23 +128,65 @@ function createApp({
   api.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   api.get('/config', (_req, res) =>
-    res.json({ editingEnabled: Boolean(adminToken), minColors: MIN_COLORS, maxColors: MAX_COLORS }),
+    res.json({
+      editingEnabled: Boolean(adminToken),
+      minColors: MIN_COLORS,
+      maxColors: MAX_COLORS,
+      publicAdding: visitorRules.enabled,
+      contactEmail,
+      visitorLimits: {
+        maxColors: visitorRules.maxColors,
+        perDay: visitorRules.perDay,
+        expireSeconds: visitorRules.expireSeconds,
+        nameMin: VISITOR_NAME_MIN,
+        nameMax: VISITOR_NAME_MAX,
+      },
+    }),
   );
 
   api.get('/colors', (_req, res) => res.json(colors.list()));
 
-  api.post('/colors', admin, (req, res) => {
+  const createAsAdmin = (req, res) => {
     const { value, error } = validateColorInput(req.body);
     if (error) return res.status(400).json({ error });
     if (colors.count() >= MAX_COLORS) {
       return res.status(409).json({ error: `The color list is limited to ${MAX_COLORS} colors.` });
     }
     try {
-      return res.status(201).json(colors.create(value));
+      return res.status(201).json(colors.create(value, 'admin'));
     } catch (err) {
       if (isUniqueViolation(err)) return res.status(409).json({ error: DUPLICATE_MESSAGE });
       throw err;
     }
+  };
+
+  const createAsVisitor = (req, res) => {
+    const { value, error } = validateVisitorColorInput(req.body);
+    if (error) return res.status(400).json({ error });
+    if (colors.countVisitor() >= visitorRules.maxColors || colors.count() >= MAX_COLORS) {
+      return res.status(409).json({
+        error: 'The visitor color list is full right now. Visitor colors are removed automatically, so please try again later.',
+      });
+    }
+    if (!dayQuota.take(req.ip)) {
+      return res
+        .status(429)
+        .json({ error: `You can add up to ${visitorRules.perDay} colors per day. Please try again tomorrow.` });
+    }
+    try {
+      return res.status(201).json(colors.create(value, 'visitor'));
+    } catch (err) {
+      if (isUniqueViolation(err)) return res.status(409).json({ error: DUPLICATE_MESSAGE });
+      throw err;
+    }
+  };
+
+  // With an admin key: the normal admin rules. Without one: a visitor submission, if that is switched on.
+  api.post('/colors', (req, res, next) => {
+    if (req.get('x-admin-key') || !visitorRules.enabled) {
+      return admin(req, res, () => createAsAdmin(req, res));
+    }
+    return createAsVisitor(req, res, next);
   });
 
   api.put('/colors/:id', admin, (req, res) => {

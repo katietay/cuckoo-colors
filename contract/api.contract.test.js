@@ -21,7 +21,7 @@ test('health and config', async () => {
   const config = (await call('GET', '/api/config')).json;
   assert.equal(config.editingEnabled, true);
   assert.equal(config.minColors, 2);
-  assert.equal(config.maxColors, 50);
+  assert.equal(config.maxColors, 75);
 });
 
 test('GET /api/colors lists colors with id, name and normalized hex, without a key', async () => {
@@ -29,7 +29,7 @@ test('GET /api/colors lists colors with id, name and normalized hex, without a k
   assert.equal(res.status, 200);
   assert.ok(Array.isArray(res.json) && res.json.length >= 2);
   for (const c of res.json) {
-    assert.deepEqual(Object.keys(c).sort(), ['hex', 'id', 'name']);
+    assert.deepEqual(Object.keys(c).sort(), ['expiresAt', 'hex', 'id', 'name', 'source']);
     assert.equal(typeof c.id, 'number');
     assert.match(c.hex, /^#[0-9a-f]{6}$/);
   }
@@ -121,7 +121,7 @@ test('PUT updates, allows an unchanged save, and rejects collisions', async () =
   const n = unique();
   const updated = await call('PUT', `/api/colors/${a.id}`, { body: { name: n.name, hex: n.hex.toUpperCase() }, headers: authed });
   assert.equal(updated.status, 200, updated.text);
-  assert.deepEqual(updated.json, { id: a.id, name: n.name, hex: n.hex });
+  assert.deepEqual(updated.json, { id: a.id, name: n.name, hex: n.hex, source: 'admin', expiresAt: null });
   assert.equal((await call('PUT', `/api/colors/${a.id}`, { body: updated.json, headers: authed })).status, 200);
   assert.equal((await call('PUT', `/api/colors/${a.id}`, { body: { name: b.name, hex: '#010203' }, headers: authed })).status, 409);
   assert.equal((await call('PUT', `/api/colors/${a.id}`, { body: { name: 'zzz unique name', hex: b.hex }, headers: authed })).status, 409);
@@ -159,7 +159,7 @@ test('unknown routes return a JSON 404', async () => {
 test('the server keeps at least two colors and stops at the maximum', { skip: !process.env.API_DESTRUCTIVE }, async () => {
   // Fill up to the maximum, then one more must be refused.
   let list = (await call('GET', '/api/colors')).json;
-  while (list.length < 50) {
+  while (list.length < 75) {
     const res = await call('POST', '/api/colors', { body: unique(), headers: authed });
     assert.equal(res.status, 201, res.text);
     list.push(res.json);

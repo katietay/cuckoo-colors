@@ -5,6 +5,9 @@ declare(strict_types=1);
 final class Validate
 {
     public const NAME_MAX = 40;
+    public const VISITOR_NAME_MIN = 3;
+    public const VISITOR_NAME_MAX = 24;
+    public const VISITOR_WORDS_MAX = 3;
 
     /** Trim and collapse whitespace. Returns null when the name is not acceptable. */
     public static function name(mixed $value): ?string
@@ -56,6 +59,38 @@ final class Validate
         $name = self::name($body['name'] ?? null);
         if ($name === null) {
             return ['error' => 'Name must be 1 to ' . self::NAME_MAX . ' characters: letters, numbers, spaces, hyphens or apostrophes.'];
+        }
+        $hex = self::hex($body['hex'] ?? null);
+        if ($hex === null) {
+            return ['error' => 'Hex value must look like #rrggbb or #rgb, using only the digits 0-9 and A-F.'];
+        }
+        return ['value' => ['name' => $name, 'hex' => $hex]];
+    }
+
+    /**
+     * Validate a color submitted by a visitor (no admin key). Stricter than the admin rules.
+     * @return array{value?: array{name: string, hex: string}, error?: string}
+     */
+    public static function visitorColor(mixed $body): array
+    {
+        if (!is_array($body) || array_is_list($body)) {
+            return ['error' => 'Request body must be a JSON object with "name" and "hex".'];
+        }
+        $name = self::name($body['name'] ?? null);
+        $length = $name === null ? 0 : mb_strlen($name, 'UTF-8');
+        if (
+            $name === null
+            || $length < self::VISITOR_NAME_MIN
+            || $length > self::VISITOR_NAME_MAX
+            || !preg_match('/^[A-Za-z\x{00C0}-\x{00D6}\x{00D8}-\x{00F6}\x{00F8}-\x{00FF}]+(?:[ \'\-][A-Za-z\x{00C0}-\x{00D6}\x{00D8}-\x{00F6}\x{00F8}-\x{00FF}]+)*$/u', $name)
+            || count(preg_split('/[ \'\-]/', $name) ?: []) > self::VISITOR_WORDS_MAX
+            || preg_match('/(.)\1{2,}/iu', $name)
+        ) {
+            return ['error' => 'Names must be ' . self::VISITOR_NAME_MIN . ' to ' . self::VISITOR_NAME_MAX
+                . ' letters (A to Z), up to ' . self::VISITOR_WORDS_MAX . ' words, with no numbers or symbols.'];
+        }
+        if (Blocklist::isBlocked($name)) {
+            return ['error' => 'That name is not allowed. Please choose a different name.'];
         }
         $hex = self::hex($body['hex'] ?? null);
         if ($hex === null) {

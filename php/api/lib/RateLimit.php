@@ -28,9 +28,10 @@ final class RateLimit
             $hits = (int) $select->fetchColumn();
         }
 
-        // Occasional cleanup of old rows.
+        // Occasional cleanup. Keep rows for two days so a long window (the daily visitor limit)
+        // is never cut short by a request that uses a shorter window.
         if (random_int(1, 100) === 1) {
-            $pdo->prepare('DELETE FROM rate_limits WHERE window_start <= ?')->execute([$now - $windowSeconds]);
+            $pdo->prepare('DELETE FROM rate_limits WHERE window_start <= ?')->execute([$now - 172800]);
         }
 
         return $hits <= $limit;

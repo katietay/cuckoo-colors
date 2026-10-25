@@ -1,7 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Color, ColorService, ServerConfig, describeHttpError } from '../services/colors.service';
-import { NAME_MAX, isValidHex, isValidName, normalizeHex, normalizeName } from '../shared/color-utils';
+import { AddColorComponent } from '../shared/add-color.component';
+import { isValidHex, isValidName, normalizeHex, normalizeName, NAME_MAX } from '../shared/color-utils';
 
 const HEX_HELP =
   'This is not a valid hex value. Ensure your value matches the form #rrggbb (or #rgb) and contains only the digits 0-F.';
@@ -10,21 +12,19 @@ const NAME_HELP = `Names must be 1 to ${NAME_MAX} characters: letters, numbers, 
 @Component({
   selector: 'app-color-management',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, AddColorComponent],
   templateUrl: './color-management.component.html',
   styleUrls: ['./color-management.component.css'],
 })
 export class ColorManagementComponent implements OnInit {
   colors: Color[] = [];
-  config: ServerConfig = { editingEnabled: false, minColors: 2, maxColors: 50 };
+  config: ServerConfig = { editingEnabled: false, minColors: 2, maxColors: 75 };
   loadError = '';
 
   adminKey = '';
-  newColor = { name: '', hex: '' };
   editColor: Color | null = null;
   deleteCandidate: Color | null = null;
 
-  addError = '';
   editError = '';
   deleteError = '';
 
@@ -46,40 +46,29 @@ export class ColorManagementComponent implements OnInit {
     });
   }
 
+  /** Edit and delete need an admin key, so the buttons only appear once one is typed. */
+  get isAdmin(): boolean {
+    return this.config.editingEnabled && this.adminKey.trim() !== '';
+  }
+
+  /** "about 2 days" style text for how long a visitor color will stay. */
+  expiryText(color: Color, now = Date.now()): string {
+    if (color.source !== 'visitor' || !color.expiresAt) return '';
+    const seconds = color.expiresAt - Math.floor(now / 1000);
+    if (seconds <= 0) return 'removed soon';
+    const hours = Math.ceil(seconds / 3600);
+    if (hours <= 1) return 'removed within the hour';
+    if (hours < 48) return `removed in about ${hours} hours`;
+    return `removed in about ${Math.round(hours / 24)} days`;
+  }
+
   onAdminKeyChange(key: string): void {
     this.adminKey = key;
     this.colorService.setAdminKey(key);
   }
 
-  onAddColor(): void {
-    this.addError = '';
-    const name = normalizeName(this.newColor.name);
-    const hex = normalizeHex(this.newColor.hex);
-
-    if (!isValidName(name)) {
-      this.addError = NAME_HELP;
-      return;
-    }
-    if (!isValidHex(this.newColor.hex)) {
-      this.addError = HEX_HELP;
-      return;
-    }
-    if (this.isDuplicate(name, hex)) {
-      this.addError = 'Color name or hex value already exists.';
-      return;
-    }
-    if (this.colors.length >= this.config.maxColors) {
-      this.addError = `The color list is limited to ${this.config.maxColors} colors.`;
-      return;
-    }
-
-    this.colorService.addColor({ name, hex }).subscribe({
-      next: (color) => {
-        this.colors = [...this.colors, color];
-        this.newColor = { name: '', hex: '' };
-      },
-      error: (err) => (this.addError = describeHttpError(err, 'Failed to add color.')),
-    });
+  onColorAdded(color: Color): void {
+    this.colors = [...this.colors, color];
   }
 
   startEdit(color: Color): void {

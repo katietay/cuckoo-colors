@@ -22,4 +22,11 @@ describe('HomeComponent', () => {
     expect(link.getAttribute('href')).toBe('/color-coordinate');
     expect(link.querySelector('button')).toBeNull();
   });
+
+  it('explains what the app is, why it exists and how to use it', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('What is this?');
+    expect(text).toContain('vision therapy');
+    expect(text).toContain('How to use it');
+  });
 });

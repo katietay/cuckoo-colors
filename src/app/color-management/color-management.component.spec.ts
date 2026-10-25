@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
 import { ColorManagementComponent } from './color-management.component';
 import { Color } from '../services/colors.service';
@@ -18,7 +19,7 @@ describe('ColorManagementComponent', () => {
 
   function setup(editingEnabled = true, colors: Color[] = COLORS): void {
     fixture.detectChanges();
-    http.expectOne('api/config').flush({ editingEnabled, minColors: 2, maxColors: 50 });
+    http.expectOne('api/config').flush({ editingEnabled, minColors: 2, maxColors: 75 });
     http.expectOne('api/colors').flush(colors);
     fixture.detectChanges();
   }
@@ -26,7 +27,7 @@ describe('ColorManagementComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ColorManagementComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ColorManagementComponent);
@@ -54,7 +55,7 @@ describe('ColorManagementComponent', () => {
 
   it('shows an error when the list cannot be loaded', () => {
     fixture.detectChanges();
-    http.expectOne('api/config').flush({ editingEnabled: true, minColors: 2, maxColors: 50 });
+    http.expectOne('api/config').flush({ editingEnabled: true, minColors: 2, maxColors: 75 });
     http.expectOne('api/colors').flush('boom', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
     expect(component.loadError).toBe('Could not load the color list.');
@@ -85,51 +86,18 @@ describe('ColorManagementComponent', () => {
   describe('adding', () => {
     beforeEach(() => setup());
 
-    it('blocks invalid hex and bad names without calling the server', () => {
-      component.newColor = { name: 'pink', hex: 'pink' };
-      component.onAddColor();
-      expect(component.addError).toContain('not a valid hex');
-
-      component.newColor = { name: '<script>', hex: '#ffc0cb' };
-      component.onAddColor();
-      expect(component.addError).toContain('Names must be');
-    });
-
-    it('blocks duplicates', () => {
-      component.newColor = { name: 'Red', hex: '#123456' };
-      component.onAddColor();
-      expect(component.addError).toBe('Color name or hex value already exists.');
-    });
-
-    it('posts a normalized color and appends the server response', () => {
-      component.onAdminKeyChange('my-admin-key');
-      component.newColor = { name: '  Hot   Pink ', hex: '#F0A' };
-      component.onAddColor();
-
-      const req = http.expectOne('api/colors');
-      expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ name: 'Hot Pink', hex: '#ff00aa' });
-      expect(req.request.headers.get('X-Admin-Key')).toBe('my-admin-key');
-      req.flush({ id: 4, name: 'Hot Pink', hex: '#ff00aa' });
-
+    it('appends a color added through the shared form', () => {
+      component.onColorAdded({ id: 4, name: 'Hot Pink', hex: '#ff00aa' });
       expect(component.colors.length).toBe(4);
-      expect(component.newColor).toEqual({ name: '', hex: '' });
-      expect(component.addError).toBe('');
     });
 
-    it('shows the server message when the request fails', () => {
-      component.newColor = { name: 'pink', hex: '#ffc0cb' };
-      component.onAddColor();
-      http.expectOne('api/colors').flush({ error: 'The color list is limited to 50 colors.' }, { status: 409, statusText: 'Conflict' });
-      expect(component.addError).toBe('The color list is limited to 50 colors.');
-      expect(component.colors.length).toBe(3);
-    });
-
-    it('explains a missing or wrong admin key', () => {
-      component.newColor = { name: 'pink', hex: '#ffc0cb' };
-      component.onAddColor();
-      http.expectOne('api/colors').flush({ error: 'A valid admin key is required.' }, { status: 401, statusText: 'Unauthorized' });
-      expect(component.addError).toContain('admin key');
+    it('shows edit and delete buttons only once an admin key is typed', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[aria-label="Edit red"]')).toBeNull();
+      component.onAdminKeyChange('my-admin-key');
+      fixture.detectChanges();
+      expect(el.querySelector('[aria-label="Edit red"]')).not.toBeNull();
+      expect(el.querySelector('[aria-label="Delete red"]')).not.toBeNull();
     });
   });
 

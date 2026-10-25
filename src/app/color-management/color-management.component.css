@@ -62,3 +62,9 @@ input {
     font-size: 1rem;
     padding: 0.4rem 0.6rem;
 }
+
+.visitor-tag {
+    margin-left: 10px;
+    font-size: 0.85em;
+    font-style: italic;
+}

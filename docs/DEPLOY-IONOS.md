@@ -45,6 +45,17 @@ For a subdomain instead (for example `colors.katietaylor.info`), run `npm run pa
 
 Keep `config.php` private. It is excluded from git and from the packaging step, and `api/.htaccess` blocks it from being downloaded.
 
+### Optional: let visitors add colors
+
+Add these lines to `config.php` (see `config.sample.php`):
+
+```php
+'public_add' => true,
+'contact_email' => 'you@example.com',
+```
+
+With this on, anyone can add a color without the admin key, under these rules: names are 3 to 24 letters with no numbers or symbols and are checked against a blocklist, 3 additions per visitor per day, at most 10 visitor colors at once, a total of 75 colors, and visitor colors are removed after 3 days. When the visitor list is full, the page shows an "Email me" button using `contact_email`. Visitors can never edit or delete. Editing a visitor color with the admin key makes it permanent. Set `'public_add' => false` at any time to turn it off.
+
 ## 5. Upload
 
 Use SFTP (the IONOS dashboard shows your SFTP host and user) or the IONOS file manager.
@@ -72,7 +83,7 @@ RewriteRule ^colors/ - [L]
 
 ## Updating later
 
-Run `npm run package:ionos -- /colors/` again and upload the contents, but do not overwrite `api/config.php`. The database is untouched by updates.
+Run `npm run package:ionos -- /colors/` again and upload the contents, but do not overwrite `api/config.php`. The upload includes `api/blocked-terms.json`, which the name filter needs. The database is untouched by updates.
 
 ## Backups
 

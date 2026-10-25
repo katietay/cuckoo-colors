@@ -24,9 +24,10 @@ cpSync(join(root, 'php', 'api'), join(out, 'api'), {
   recursive: true,
   filter: (src) => !/[\\/]config\.php$/.test(src),
 });
+cpSync(join(root, 'shared', 'blocked-terms.json'), join(out, 'api', 'blocked-terms.json'));
 writeFileSync(join(out, '.htaccess'), readFileSync(join(root, 'php', 'root.htaccess'), 'utf8').replaceAll('__BASE__', baseHref));
 
-if (!existsSync(join(out, 'index.html')) || !existsSync(join(out, 'api', 'index.php'))) {
+if (!existsSync(join(out, 'index.html')) || !existsSync(join(out, 'api', 'index.php')) || !existsSync(join(out, 'api', 'blocked-terms.json'))) {
   console.error('Packaging failed: expected files are missing.');
   process.exit(1);
 }

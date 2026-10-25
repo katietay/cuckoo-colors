@@ -26,6 +26,28 @@ export function isValidName(value: string | null | undefined): boolean {
   return name.length > 0 && name.length <= NAME_MAX && NAME_PATTERN.test(name);
 }
 
+export const VISITOR_NAME_MIN = 3;
+export const VISITOR_NAME_MAX = 24;
+export const VISITOR_WORDS_MAX = 3;
+// Latin letters only (including accented ones), with single spaces, hyphens or apostrophes between words.
+const VISITOR_NAME_PATTERN =
+  /^[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF]+(?:[ '\-][A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF]+)*$/;
+
+/**
+ * The format part of the visitor name rules. The server also checks a word list, so a name that
+ * passes here can still be refused.
+ */
+export function isValidVisitorName(value: string | null | undefined): boolean {
+  const name = normalizeName(value);
+  return (
+    name.length >= VISITOR_NAME_MIN &&
+    name.length <= VISITOR_NAME_MAX &&
+    VISITOR_NAME_PATTERN.test(name) &&
+    name.split(/[ '\-]/).length <= VISITOR_WORDS_MAX &&
+    !/(.)\1{2,}/iu.test(name)
+  );
+}
+
 /** Natural ordering for cell ids such as A1, A2, A10, B1. */
 export function compareCellIds(a: string, b: string): number {
   return a.localeCompare(b, 'en', { numeric: true });

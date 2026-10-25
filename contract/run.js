@@ -42,7 +42,7 @@ async function waitFor(base, anyStatus = false) {
   throw new Error(`${backend} server did not start`);
 }
 
-async function withServer(name, { key = KEY, writeLimit, brokenDb = false } = {}, run) {
+async function withServer(name, { key = KEY, writeLimit, brokenDb = false, visitor } = {}, run) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cc-${backend}-`));
   const port = await freePort();
   const env = { ...process.env };
@@ -54,10 +54,28 @@ async function withServer(name, { key = KEY, writeLimit, brokenDb = false } = {}
   if (backend === 'node') {
     Object.assign(env, { PORT: String(port), DATABASE_PATH: path.join(dir, 'c.db'), ADMIN_TOKEN: key, NODE_ENV: 'test' });
     if (writeLimit) env.WRITE_RATE_LIMIT = String(writeLimit);
+    if (visitor) {
+      Object.assign(env, {
+        PUBLIC_ADD: '1',
+        VISITOR_DAILY_LIMIT: String(visitor.perDay),
+        VISITOR_MAX_COLORS: String(visitor.maxColors),
+        VISITOR_EXPIRE_SECONDS: String(visitor.expireSeconds),
+        CONTACT_EMAIL: 'hello@example.com',
+      });
+    }
     child = spawn(process.execPath, ['api/index.js'], { cwd: root, env, stdio });
   } else {
     Object.assign(env, { CC_DB_DSN: brokenDb ? `sqlite:${path.join(dir, 'missing', 'c.db')}` : `sqlite:${path.join(dir, 'c.db')}`, CC_ADMIN_TOKEN: key });
     if (writeLimit) env.CC_WRITE_LIMIT = String(writeLimit);
+    if (visitor) {
+      Object.assign(env, {
+        CC_PUBLIC_ADD: '1',
+        CC_VISITOR_DAILY_LIMIT: String(visitor.perDay),
+        CC_VISITOR_MAX_COLORS: String(visitor.maxColors),
+        CC_VISITOR_EXPIRE_SECONDS: String(visitor.expireSeconds),
+        CC_CONTACT_EMAIL: 'hello@example.com',
+      });
+    }
     child = spawn('php', ['-S', `127.0.0.1:${port}`, 'php/dev-router.php'], { cwd: root, env, stdio });
   }
   const base = `http://127.0.0.1:${port}`;
@@ -93,6 +111,18 @@ function runTests(files, extraEnv) {
   failed += await withServer('read-only', { key: '' }, (base) =>
     runTests(['readonly.contract.test.js'], { API_BASE: base, ADMIN_TOKEN: KEY, READONLY_EXPECT: '1' }),
   );
+  // Visitor adding is off unless switched on, so each rule gets its own server with its own limits.
+  const visitorRuns = [
+    ['rules', { perDay: 100, maxColors: 200, expireSeconds: 3600 }],
+    ['quota', { perDay: 2, maxColors: 200, expireSeconds: 3600 }],
+    ['cap', { perDay: 100, maxColors: 2, expireSeconds: 3600 }],
+    ['expiry', { perDay: 100, maxColors: 200, expireSeconds: 2 }],
+  ];
+  for (const [mode, visitor] of visitorRuns) {
+    failed += await withServer(`visitor adds: ${mode}`, { writeLimit: 100000, visitor }, (base) =>
+      runTests(['public.contract.test.js'], { API_BASE: base, ADMIN_TOKEN: KEY, PUBLIC_MODE: mode }),
+    );
+  }
   if (backend === 'php') {
     failed += await withServer('broken database', { brokenDb: true }, (base) =>
       runTests(['failure.contract.test.js'], { API_BASE: base, ADMIN_TOKEN: KEY, FAILURE_EXPECT: '1' }),

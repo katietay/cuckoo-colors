@@ -9,4 +9,32 @@
     </p>
     <a routerLink="/color-coordinate" class="button-alt">Get Started</a>
   </section>
+
+  <section class="home-about" aria-labelledby="about-heading">
+    <h2 id="about-heading">What is this?</h2>
+    <p>
+      Cuckoo Colors makes printable activity sheets for vision therapy. Each sheet has a grid of cells, like a
+      spreadsheet, with columns labeled A, B, C and rows numbered 1, 2, 3. You paint a pattern in the grid, and the
+      tool writes a list of coordinates for each color, for example "Red: A1, B3, C2". A person then recreates the
+      pattern on a blank grid from that list. Finding each cell, matching it to a color and coloring it in works on
+      visual tracking, scanning and attention.
+    </p>
+    <h3>Why it exists</h3>
+    <p>
+      Therapists and parents often build these sheets by hand, which is slow and easy to get wrong. This tool
+      generates a new one in seconds. It was built to be accessible: every color is shown with its name as well as
+      its swatch, the page works with a keyboard and screen reader, and the printout is plain and high contrast.
+    </p>
+    <h3>How to use it</h3>
+    <ol>
+      <li>Open <a routerLink="/color-coordinate">Color Coordinate</a> and choose the number of rows, columns and colors.</li>
+      <li>Press Generate. Table 1 lists your colors and, as you paint, the cells that belong to each. Change a color with its drop-down.</li>
+      <li>Table 2 is the grid. Choose a color in Table 1, then click cells to paint your pattern.</li>
+      <li>Press Print to get a sheet with the coordinate list and the grid.</li>
+    </ol>
+    <p>
+      The colors come from a shared list on the <a routerLink="/color-management">Color Management</a> page. You can
+      suggest new colors there or from the generator.
+    </p>
+  </section>
 </main>

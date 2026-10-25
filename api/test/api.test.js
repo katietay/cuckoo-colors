@@ -58,7 +58,7 @@ test('GET /api/colors returns the seeded colors without auth', async () => {
   const res = await call(ctx.base, 'GET', '/api/colors');
   assert.equal(res.status, 200);
   assert.equal(res.json.length, DEFAULT_COLORS.length);
-  assert.deepEqual(Object.keys(res.json[0]).sort(), ['hex', 'id', 'name']);
+  assert.deepEqual(Object.keys(res.json[0]).sort(), ['expiresAt', 'hex', 'id', 'name', 'source']);
 });
 
 test('opening an existing database does not wipe or re-seed it', () => {
@@ -151,7 +151,7 @@ test('PUT updates a color', async () => {
   const [first] = (await call(ctx.base, 'GET', '/api/colors')).json;
   const res = await call(ctx.base, 'PUT', `/api/colors/${first.id}`, { body: { name: 'Scarlet', hex: '#FF2400' }, headers: AUTH });
   assert.equal(res.status, 200);
-  assert.deepEqual(res.json, { id: first.id, name: 'Scarlet', hex: '#ff2400' });
+  assert.deepEqual(res.json, { id: first.id, name: 'Scarlet', hex: '#ff2400', source: 'admin', expiresAt: null });
 });
 
 test('PUT allows saving a color unchanged but rejects collisions with another color', async () => {
