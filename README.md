@@ -155,7 +155,7 @@ The Node and SQLite API stays in the repo for local development and runs the sam
 
 ## License
 
-No license has been added yet. Until one is, all rights remain with the contributors.
+All rights reserved. The code is public for viewing and portfolio reference only. See [LICENSE](LICENSE). To ask about other uses, email katie@katietaylor.info.
 
 ## Acknowledgements
 
