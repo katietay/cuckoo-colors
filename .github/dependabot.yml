@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # The app targets Node 22, so keep the Node type definitions on 22.x.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Angular packages must move together, so propose them as one pull request.
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "zone.js"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
