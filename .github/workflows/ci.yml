@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:api
+      - name: API contract tests (Node and PHP)
+        run: |
+          php -v
+          npm run test:contract
+      - run: npm run test:web
+      - run: npm run build
+      - name: Audit production dependencies
+        run: npm run audit:prod

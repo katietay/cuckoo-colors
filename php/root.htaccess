@@ -1,0 +1,50 @@
+# Cuckoo Colors on Apache (IONOS Web Hosting). Upload as ".htaccess" in the app's folder.
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # API requests go to the PHP script (index.php itself is left alone).
+    RewriteRule ^api/(?!index\.php$)(.*)$ api/index.php [L,QSA]
+
+    # Real files and folders are served as they are.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Everything else is a client-side route of the Angular app.
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+# Never serve hidden files (except .well-known).
+<FilesMatch "^\.(?!well-known)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.htaccess$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header set Cross-Origin-Opener-Policy "same-origin"
+    # Applies to normal responses and replaces (not duplicates) the headers PHP sets.
+    # Only send over HTTPS. Remove this line if the site is not served over HTTPS yet.
+    Header set Strict-Transport-Security "max-age=31536000"
+
+    # Build files have a content hash in the name, so they can be cached for a year.
+    <FilesMatch "-[A-Z0-9]{8}\.(js|css|woff2?)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.html$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>

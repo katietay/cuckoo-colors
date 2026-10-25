@@ -1,0 +1,95 @@
+<main>
+  <h1>Color Management</h1>
+
+  @if (loadError) {
+    <p class="error" role="alert">{{ loadError }}</p>
+  }
+
+  @if (!config.editingEnabled) {
+    <p class="notice" role="status">
+      This is a read-only view. Editing is turned off on this server, so you can look at the colors but not change them.
+    </p>
+  } @else {
+    <p class="notice">
+      Adding, editing and deleting colors needs the admin key. Anyone can view the list.
+    </p>
+    <div class="field">
+      <label for="admin-key">Admin key</label>
+      <input
+        id="admin-key"
+        name="adminKey"
+        type="password"
+        autocomplete="off"
+        [ngModel]="adminKey"
+        (ngModelChange)="onAdminKeyChange($event)"
+      />
+    </div>
+
+    <form (ngSubmit)="onAddColor()" #addForm="ngForm">
+      <h2>Add Color</h2>
+      <div class="field">
+        <label for="add-name">Color name</label>
+        <input id="add-name" name="name" [(ngModel)]="newColor.name" placeholder="Color Name" required maxlength="40" />
+      </div>
+      <div class="field">
+        <label for="add-hex">Hex value</label>
+        <input id="add-hex" name="hex" [(ngModel)]="newColor.hex" placeholder="Hex Value (e.g. #ABCDEF)" required maxlength="7" />
+      </div>
+      <button type="submit">Add Color</button>
+      @if (addError) {
+        <div class="error" role="alert">{{ addError }}</div>
+      }
+    </form>
+
+    <hr />
+
+    @if (editColor) {
+      <section aria-labelledby="edit-heading">
+        <h2 id="edit-heading">Edit Color: {{ editColor.name }}</h2>
+        <form (ngSubmit)="onEditColor()" #editForm="ngForm">
+          <div class="field">
+            <label for="edit-name">Color name</label>
+            <input id="edit-name" [(ngModel)]="editColor.name" name="name" required maxlength="40" />
+          </div>
+          <div class="field">
+            <label for="edit-hex">Hex value</label>
+            <input id="edit-hex" [(ngModel)]="editColor.hex" name="hex" required maxlength="7" />
+          </div>
+          <button type="submit">Update Color</button>
+          <button (click)="cancelEdit()" type="button">Cancel</button>
+        </form>
+        @if (editError) {
+          <div class="error" role="alert">{{ editError }}</div>
+        }
+      </section>
+    }
+  }
+
+  <h2>Colors</h2>
+  <ul>
+    @for (color of colors; track color.id) {
+      <li>
+        <span class="color">
+          <b>{{ color.name }}</b>
+          <span class="hex">{{ color.hex }}</span>
+          <div class="swatch" aria-hidden="true" [style.backgroundColor]="color.hex"></div>
+          @if (config.editingEnabled) {
+            <button type="button" (click)="startEdit(color)" [attr.aria-label]="'Edit ' + color.name">Edit</button>
+            <button type="button" (click)="confirmDelete(color)" [attr.aria-label]="'Delete ' + color.name">Delete</button>
+          }
+        </span>
+      </li>
+    }
+  </ul>
+
+  @if (deleteCandidate) {
+    <div role="alertdialog" aria-labelledby="delete-question">
+      <p id="delete-question">Are you sure you want to delete <strong>{{ deleteCandidate.name }}</strong>?</p>
+      <button type="button" (click)="onDeleteColor()">Yes</button>
+      <button type="button" (click)="cancelDelete()">No</button>
+      @if (deleteError) {
+        <div class="error" role="alert">{{ deleteError }}</div>
+      }
+    </div>
+  }
+</main>

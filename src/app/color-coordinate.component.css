@@ -1,0 +1,161 @@
+.error {
+  color: #8a1c1c; /* 7.5:1 on the cream background */
+  font-size: 0.9em;
+  display: block;
+  margin-top: 5px;
+}
+
+.table-container {
+  width: 90%;
+  max-height: 750px;
+  overflow-x: auto;
+  margin: 0 auto;
+  border: 1px solid #ccc;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.scroll-container {
+  max-height: 400px;
+  overflow-y: auto;
+  margin: 0 auto;
+  width: 90%;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+
+.scroll-container table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.warning {
+  color: darkred;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+
+
+table {
+  border-collapse: collapse;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+form {
+  max-width: 100%;
+}
+
+td,
+th {
+  border: 1px solid #000;
+  padding: 5px;
+  text-align: center;
+}
+
+h2 {
+  text-align: center;
+  margin-top: 40px;
+}
+
+th {
+  background-color: var(--light-tan);
+  color: var(--deep-teal);
+}
+
+tr {
+  background-color: #EBEAEB;
+}
+
+input,
+select {
+  font-family: 'Poppins', sans-serif;
+}
+
+.color-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+}
+
+
+/* Hide elements during printing */
+#print-logo {
+  display: none;
+}
+
+@media print {
+  .ignoreOnPrint,
+  input {
+    display: none !important;
+  }
+
+  /* section table tr td:first-child {
+    display: none !important;
+  } */
+
+  select {
+    border: none !important;
+    appearance: none !important;
+  }
+
+  #print-logo {
+    display: block !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    width: 60px !important;
+    height: auto !important;
+    z-index: 9999 !important;
+  }
+
+  .table-container {
+    overflow: visible !important;
+    height: auto !important;
+    border: none !important;
+    position: absolute !important;
+    left: 80px !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 0.5cm;
+  }
+
+  
+  
+}
+
+.paint-cell {
+  cursor: pointer;
+  min-width: 2rem;
+  height: 2rem;
+}
+
+.paint-cell:focus-visible {
+  outline: 3px solid var(--deep-teal);
+  outline-offset: -3px;
+}
+
+.print-button {
+  margin-top: 1rem;
+}
+
+.hint {
+  font-size: 1rem;
+}

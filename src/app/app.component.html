@@ -1,0 +1,28 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<header class="navbar ignoreOnPrint">
+  <div class="nav-left">
+    <img src="assets/images/clock.png" alt="Cuckoo Colors logo" class="nav-logo" />
+  </div>
+
+  <button
+    type="button"
+    class="hamburger ignoreOnPrint"
+    aria-label="Toggle navigation"
+    aria-controls="site-nav"
+    [attr.aria-expanded]="drawerOpen"
+    (click)="toggleDrawer()"
+  >
+    <span aria-hidden="true">☰</span>
+  </button>
+
+  <nav #navMenu id="site-nav" class="nav-links ignoreOnPrint" aria-label="Main navigation" [class.open]="drawerOpen">
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeDrawer()">Home</a>
+    <a routerLink="/color-coordinate" routerLinkActive="active" (click)="closeDrawer()">Color Coordinate</a>
+    <a routerLink="/color-management" routerLinkActive="active" (click)="closeDrawer()">Color Management</a>
+  </nav>
+</header>
+
+<div id="main-content" tabindex="-1">
+  <router-outlet></router-outlet>
+</div>

@@ -1,0 +1,12 @@
+# Only index.php may be requested directly. Config, libraries and notes stay private.
+# (Deny rules are by file type, not "everything except index.php": Apache checks access
+#  before the rewrite to index.php, so a blanket deny would also block /api/colors.)
+<FilesMatch "\.(php|sql|txt|md|inc|bak|log)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^index\.php$">
+    Require all granted
+</FilesMatch>
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>

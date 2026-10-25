@@ -1,0 +1,75 @@
+@page {
+    size: landscape;
+    margin: 0.3in;
+  }
+  
+  body,
+  html {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  /* General greyscale resets */
+  * {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  /* Keep Table 1 styled normally */
+  section table {
+    width: 90% !important;
+    table-layout: fixed !important;
+    font-size: inherit !important;
+  }
+  
+  /* Table 2 (inside table-container) gets scrollable layout */
+  .table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    display: block !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Table 2 gets smaller font */
+  .table-container table {
+    font-size: 8pt !important;
+    table-layout: auto !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  
+  /* Header cells get grey background */
+  th {
+    background-color: #ccc !important;
+    font-weight: bold !important;
+  }
+  
+  /* Logo spacing and positioning */
+  #print-logo {
+    display: block !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    width: 60px !important;
+    height: auto !important;
+    z-index: 9999 !important;
+    margin-bottom: 40px !important;
+  }
+  
+  /* Add space below logo for body content */
+  main {
+    padding-top: 80px !important;
+  }
+  
+  /* Greyscale filter for all images */
+  img {
+    filter: grayscale(100%) !important;
+  }
+  

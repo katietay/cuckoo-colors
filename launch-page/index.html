@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cuckoo Colors | Katie Taylor</title>
+  <meta name="description" content="Cuckoo Colors generates accessible, printable color coordinate activities. A CS 312 team project at Colorado State University, now maintained by Katie Taylor.">
+  <link rel="stylesheet" href="launch.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <a href="/" class="back-link">Back to katietaylor.info</a>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="title">
+      <h1 id="title">Cuckoo Colors</h1>
+      <p class="lead">
+        Generate printable color coordinate activities that balance creativity, logic and accessibility.
+      </p>
+      <!-- Edit APP_URL: the address where the app is hosted. -->
+      <a class="button" href="https://katietaylor.info/colors/" rel="noopener">Launch the app</a>
+      <p class="note">Editing the color list is limited to the administrator, so visitors can use every feature except changing the saved colors.</p>
+    </section>
+
+    <section aria-labelledby="what">
+      <h2 id="what">What it does</h2>
+      <ul>
+        <li>Choose up to 1000 rows, 702 columns and the number of colors.</li>
+        <li>Paint cells with a mouse, touch or keyboard (arrow keys to move, Enter or Space to paint).</li>
+        <li>Change a color mid-activity and every painted cell updates with it.</li>
+        <li>Print a clean, grayscale-friendly worksheet.</li>
+        <li>Colors are stored in a database and managed on their own page.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="built">
+      <h2 id="built">How it is built</h2>
+      <p>
+        Angular 20 front end with an API backed by a SQL database (Express and SQLite for development, PHP and MySQL in production). Server-side validation, rate limiting,
+        a strict Content Security Policy and automated tests (API and front end) are part of the project.
+        WCAG 2.1 AA contrast and keyboard support were design requirements from the start.
+      </p>
+      <p>
+        <!-- Edit REPO_URL if the repository name or owner differs. -->
+        <a href="https://github.com/katietay/cuckoo-colors" rel="noopener">View the source on GitHub</a>
+      </p>
+    </section>
+
+    <section aria-labelledby="credits">
+      <h2 id="credits">Credits</h2>
+      <p>
+        Created for CS 312 Modern Web Development at Colorado State University, Spring 2025, by Team 28:
+      </p>
+      <ul class="credits">
+        <li><a href="https://github.com/elsophia04" rel="noopener">Sophia Lopez</a></li>
+        <li><a href="https://github.com/katietay" rel="noopener">Katie Taylor</a></li>
+        <li><a href="https://github.com/AdoApplescider" rel="noopener">Adam</a></li>
+        <li><a href="https://github.com/torriac" rel="noopener">Torria</a></li>
+      </ul>
+      <p>Updated and maintained by Katie Taylor.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; Katie Taylor Web Design</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<main>
+  <img id="print-logo" src="assets/images/logo.png" alt="Cuckoo Colors Logo (Print Only)" />
+
+  <h1 class="ignoreOnPrint">Color Coordinate</h1>
+
+  @if (loadError) {
+    <p class="error" role="alert">{{ loadError }}</p>
+  }
+
+  <form [formGroup]="colorForm" (ngSubmit)="onSubmit()">
+    <p class="ignoreOnPrint">
+      <label for="rows-input">Choose # of Rows (1–1000):</label>
+      <input id="rows-input" type="number" formControlName="rows" min="1" max="1000" required />
+      @if (colorForm.get('rows')?.invalid && colorForm.get('rows')?.touched) {
+        <span class="error" role="alert">Please enter a number between 1 and 1000.</span>
+      }
+    </p>
+
+    <p class="ignoreOnPrint">
+      <label for="columns-input">Choose # of Columns (1–702):</label>
+      <input id="columns-input" type="number" formControlName="columns" min="1" max="702" required />
+      @if (colorForm.get('columns')?.invalid && colorForm.get('columns')?.touched) {
+        <span class="error" role="alert">Please enter a number between 1 and 702.</span>
+      }
+    </p>
+
+    <p class="ignoreOnPrint">
+      <label for="colors-input">Choose # of Colors (1–{{ colors.length }}):</label>
+      <input id="colors-input" type="number" formControlName="colors" min="1" [max]="colors.length" required />
+      @if (colorForm.get('colors')?.invalid && colorForm.get('colors')?.touched) {
+        <span class="error" role="alert">Please enter a number between 1 and {{ colors.length }}.</span>
+      }
+    </p>
+
+    <button type="submit" class="ignoreOnPrint" [disabled]="!colorForm.valid">Generate</button>
+
+    @if (colorRows.length > 0) {
+      <section aria-labelledby="table1-heading">
+        <h2 id="table1-heading">Table 1 - Color Selection Table</h2>
+        <div class="scroll-container">
+          <table class="color-select-table">
+            @for (row of colorRows; track $index; let i = $index) {
+              @if (i < 20 || printMode) {
+                <tr [class.print-only]="i >= 20">
+                  <td class="left-cell">
+                    <div class="selector">
+                      <input
+                        type="radio"
+                        name="selectedRow"
+                        [checked]="row.selected"
+                        (change)="onSelectRow(i)"
+                        [attr.aria-label]="'Paint with ' + (row.color.name | titlecase)"
+                        class="ignoreOnPrint"
+                      />
+                      <select
+                        [ngModel]="row.color"
+                        (ngModelChange)="onColorChange(i, $event)"
+                        [compareWith]="compareColors"
+                        [attr.aria-label]="'Color for row ' + (i + 1)"
+                        [ngModelOptions]="{ standalone: true }"
+                      >
+                        @for (color of getAvailableColorsForRow(i); track color.id) {
+                          <option [ngValue]="color">{{ color.name | titlecase }}</option>
+                        }
+                      </select>
+                      <div class="color-swatch" aria-hidden="true" [style.backgroundColor]="row.color.hex || '#fff'"></div>
+                    </div>
+                  </td>
+                  <td class="right-cell" style="width: 80%;">
+                    <strong>{{ row.color.name | titlecase }}:</strong>
+                    {{ rowCells[i].join(', ') }}
+                  </td>
+                </tr>
+              }
+            }
+          </table>
+        </div>
+      </section>
+    }
+
+    @if (columnLabels.length > 0) {
+      <div class="table-container">
+        <h2>Table 2 - Color Painting Table</h2>
+        <p class="ignoreOnPrint hint">
+          Choose a color in Table 1, then click a cell to paint it. With a keyboard, use the arrow keys to move
+          and Enter or Space to paint.
+        </p>
+        <table role="grid" aria-label="Color painting table">
+          <tr>
+            <th></th>
+            @for (label of columnLabels; track label) {
+              <th scope="col">{{ label }}</th>
+            }
+          </tr>
+          @for (label of rowLabels; track label; let rowIndex = $index) {
+            <tr>
+              <th scope="row">{{ rowIndex + 1 }}</th>
+              @for (colLabel of columnLabels; track colLabel; let colIndex = $index) {
+                <td
+                  role="gridcell"
+                  class="paint-cell"
+                  [id]="'cell-' + colLabel + (rowIndex + 1)"
+                  [attr.tabindex]="activeCell.row === rowIndex + 1 && activeCell.col === colIndex ? 0 : -1"
+                  [attr.aria-label]="cellLabel(rowIndex + 1, colLabel)"
+                  [style.backgroundColor]="cellColor(rowIndex + 1, colLabel)"
+                  (click)="onCellClick(rowIndex + 1, colLabel)"
+                  (focus)="activeCell = { row: rowIndex + 1, col: colIndex }"
+                  (keydown)="onCellKeydown($event, rowIndex + 1, colLabel)"
+                ></td>
+              }
+            </tr>
+          }
+        </table>
+      </div>
+    }
+
+    <div>
+      @if (rowLabels.length > 0) {
+        <button type="button" class="ignoreOnPrint print-button" (click)="onPrint()">Print</button>
+      }
+    </div>
+  </form>
+</main>
